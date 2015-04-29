@@ -104,7 +104,7 @@ macro_rules! impl_to_source {
         }
         impl ToSourceWithHygiene for P<$t> {
             fn to_source_with_hygiene(&self) -> String {
-                pprust::with_hygiene::$pp(&**self)
+                pprust::$pp(&**self)
             }
         }
     );
@@ -116,7 +116,7 @@ macro_rules! impl_to_source {
         }
         impl ToSourceWithHygiene for $t {
             fn to_source_with_hygiene(&self) -> String {
-                pprust::with_hygiene::$pp(self)
+                pprust::$pp(self)
             }
         }
     );
@@ -163,7 +163,7 @@ impl ToSource for ast::Ident {
 
 impl ToSourceWithHygiene for ast::Ident {
     fn to_source_with_hygiene(&self) -> String {
-        self.encode_with_hygiene()
+        self.to_string()
     }
 }
 
@@ -199,7 +199,7 @@ impl ToSource for P<ast::ImplItem> {
 
 impl ToSourceWithHygiene for P<ast::ImplItem> {
     fn to_source_with_hygiene(&self) -> String {
-        pprust::with_hygiene::to_string_hyg(|s| s.print_impl_item(self))
+        pprust::to_string(|s| s.print_impl_item(self))
     }
 }
 
@@ -213,7 +213,7 @@ impl ToSource for ast::WhereClause {
 
 impl ToSourceWithHygiene for ast::WhereClause {
     fn to_source_with_hygiene(&self) -> String {
-        pprust::with_hygiene::to_string_hyg(|s| {
+        pprust::to_string(|s| {
             s.print_where_clause(&self)
         })
     }
@@ -408,7 +408,7 @@ impl<'a> ExtParseUtils for ExtCtxt<'a> {
 impl<'a> ExtParseUtilsWithHygiene for ExtCtxt<'a> {
 
     fn parse_tts_with_hygiene(&self, s: String) -> Vec<ast::TokenTree> {
-        use syntax::parse::with_hygiene::parse_tts_from_source_str;
+        use syntax::parse::parse_tts_from_source_str;
         parse_tts_from_source_str("<quote expansion>".to_string(),
                                   s,
                                   self.cfg(),
