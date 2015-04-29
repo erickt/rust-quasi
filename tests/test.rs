@@ -35,6 +35,7 @@ fn make_ext_ctxt(sess: &parse::ParseSess) -> ExtCtxt {
         crate_name: String::new(),
         features: None,
         recursion_limit: 64,
+        trace_mac: false,
     };
 
     let mut cx = ExtCtxt::new(&sess, cfg, ecfg);
