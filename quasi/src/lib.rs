@@ -20,6 +20,7 @@ extern crate syntax;
 
 use std::rc::Rc;
 
+use syntax::errors::DiagnosticBuilder;
 use syntax::ast::{self, TokenTree};
 use syntax::codemap::{DUMMY_SP, Spanned, dummy_spanned};
 use syntax::ext::base::ExtCtxt;
@@ -29,104 +30,107 @@ use syntax::print::pprust;
 use syntax::ptr::P;
 
 pub trait ToTokens {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree>;
-}
+    fn to_tokens<'a, 'b, 'c>(&'a self,
+                             _cx: &'b ExtCtxt<'c>)
+                             -> Result<Vec<TokenTree>, DiagnosticBuilder<'c>>; }
 
 impl ToTokens for TokenTree {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![self.clone()]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![self.clone()])
     }
 }
 
 impl<'a, T: ToTokens> ToTokens for &'a T {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'b>(&self, cx: &ExtCtxt<'b>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'b>> {
         (**self).to_tokens(cx)
     }
 }
 
 impl<'a, T: ToTokens> ToTokens for &'a [T] {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
-        self.iter()
-            .flat_map(|t| t.to_tokens(cx).into_iter())
-            .collect()
+    fn to_tokens<'b>(&self, cx: &ExtCtxt<'b>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'b>> {
+        Ok(self.iter()
+               .flat_map(|t| t.to_tokens(cx).unwrap().into_iter())
+               .collect())
     }
 }
 
 impl<T: ToTokens> ToTokens for Vec<T> {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
-        self.iter().flat_map(|t| t.to_tokens(cx).into_iter()).collect()
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(self.iter().flat_map(|t| t.to_tokens(cx).unwrap()).collect())
     }
 }
 
 impl<T: ToTokens> ToTokens for Spanned<T> {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         // FIXME: use the span?
         self.node.to_tokens(cx)
     }
 }
 
 impl<T: ToTokens> ToTokens for Option<T> {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         match self {
             &Some(ref t) => t.to_tokens(cx),
-            &None => Vec::new(),
+            &None => Ok(Vec::new()),
         }
     }
 }
 
 impl ToTokens for ast::Ident {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(DUMMY_SP, token::Ident(*self, token::Plain))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(DUMMY_SP, token::Ident(*self, token::Plain))])
     }
 }
 
 impl ToTokens for ast::Path {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(DUMMY_SP,
-                                   token::Interpolated(token::NtPath(Box::new(self.clone()))))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(DUMMY_SP,
+                                      token::Interpolated(token::NtPath(Box::new(self.clone()))))])
     }
 }
 
 impl ToTokens for ast::Ty {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtTy(P(self.clone()))))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(self.span,
+                                      token::Interpolated(token::NtTy(P(self.clone()))))])
     }
 }
 
 impl ToTokens for P<ast::Ty> {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtTy(self.clone())))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtTy(self.clone())))])
     }
 }
 
 impl ToTokens for P<ast::Block> {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtBlock(self.clone())))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(self.span,
+                                      token::Interpolated(token::NtBlock(self.clone())))])
     }
 }
 
 impl ToTokens for P<ast::Item> {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtItem(self.clone())))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtItem(self.clone())))])
     }
 }
 
 impl ToTokens for P<ast::ImplItem> {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span,
-                                   token::Interpolated(token::NtImplItem(self.clone())))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(self.span,
+                                      token::Interpolated(token::NtImplItem(self.clone())))])
     }
 }
 
 impl ToTokens for P<ast::TraitItem> {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span,
-                                   token::Interpolated(token::NtTraitItem(self.clone())))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(self.span,
+                                      token::Interpolated(token::NtTraitItem(self.clone())))])
     }
 }
 
 impl ToTokens for ast::Generics {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Result<Vec<TokenTree>, DiagnosticsBuilder> {
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         let s = pprust::generics_to_string(self);
 
         parse_tts_from_source_str("<quote expansion>".to_string(),
@@ -137,7 +141,7 @@ impl ToTokens for ast::Generics {
 }
 
 impl ToTokens for ast::WhereClause {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         let s = pprust::to_string(|s| s.print_where_clause(&self));
 
         parse_tts_from_source_str("<quote expansion>".to_string(),
@@ -148,7 +152,7 @@ impl ToTokens for ast::WhereClause {
 }
 
 impl ToTokens for ast::Stmt {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         let mut tts = vec![
             ast::TokenTree::Token(self.span, token::Interpolated(token::NtStmt(P(self.clone()))))
         ];
@@ -158,40 +162,41 @@ impl ToTokens for ast::Stmt {
             tts.push(ast::TokenTree::Token(self.span, token::Semi));
         }
 
-        tts
+        Ok(tts)
     }
 }
 
 impl ToTokens for P<ast::Expr> {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtExpr(self.clone())))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtExpr(self.clone())))])
     }
 }
 
 impl ToTokens for P<ast::Pat> {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtPat(self.clone())))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtPat(self.clone())))])
     }
 }
 
 impl ToTokens for ast::Arm {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(DUMMY_SP, token::Interpolated(token::NtArm(self.clone())))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(DUMMY_SP, token::Interpolated(token::NtArm(self.clone())))])
     }
 }
 
 macro_rules! impl_to_tokens_slice {
     ($t: ty, $sep: expr) => {
         impl ToTokens for [$t] {
-            fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+            fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
                 let mut v = vec![];
                 for (i, x) in self.iter().enumerate() {
                     if i > 0 {
                         v.extend($sep.iter().cloned());
                     }
-                    v.extend(x.to_tokens(cx));
+                    v.extend(try!(x.to_tokens(cx)));
                 }
-                v
+                
+                Ok(v)
             }
         }
     };
@@ -201,13 +206,13 @@ impl_to_tokens_slice! { ast::Ty, [ast::TokenTree::Token(DUMMY_SP, token::Comma)]
 impl_to_tokens_slice! { P<ast::Item>, [] }
 
 impl ToTokens for P<ast::MetaItem> {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(DUMMY_SP, token::Interpolated(token::NtMeta(self.clone())))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Token(DUMMY_SP, token::Interpolated(token::NtMeta(self.clone())))])
     }
 }
 
 impl ToTokens for ast::Attribute {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         let mut r = vec![];
         // FIXME: The spans could be better
         r.push(ast::TokenTree::Token(self.span, token::Pound));
@@ -218,34 +223,34 @@ impl ToTokens for ast::Attribute {
                                          Rc::new(ast::Delimited {
                                              delim: token::Bracket,
                                              open_span: self.span,
-                                             tts: self.node.value.to_tokens(cx),
+                                             tts: try!(self.node.value.to_tokens(cx)),
                                              close_span: self.span,
                                          })));
-        r
+        Ok(r)
     }
 }
 
 impl ToTokens for str {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         let lit = ast::LitKind::Str(token::intern_and_get_ident(self), ast::StrStyle::Cooked);
         dummy_spanned(lit).to_tokens(cx)
     }
 }
 
 impl ToTokens for () {
-    fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Delimited(DUMMY_SP,
-                                       Rc::new(ast::Delimited {
-                                           delim: token::Paren,
-                                           open_span: DUMMY_SP,
-                                           tts: vec![],
-                                           close_span: DUMMY_SP,
-                                       }))]
+    fn to_tokens<'a>(&self, _cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
+        Ok(vec![ast::TokenTree::Delimited(DUMMY_SP,
+                                          Rc::new(ast::Delimited {
+                                              delim: token::Paren,
+                                              open_span: DUMMY_SP,
+                                              tts: vec![],
+                                              close_span: DUMMY_SP,
+                                          }))])
     }
 }
 
 impl ToTokens for ast::Lit {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         // FIXME: This is wrong
         P(ast::Expr {
             id: ast::DUMMY_NODE_ID,
@@ -258,13 +263,13 @@ impl ToTokens for ast::Lit {
 }
 
 impl ToTokens for bool {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         dummy_spanned(ast::LitKind::Bool(*self)).to_tokens(cx)
     }
 }
 
 impl ToTokens for char {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
         dummy_spanned(ast::LitKind::Char(*self)).to_tokens(cx)
     }
 }
@@ -272,7 +277,7 @@ impl ToTokens for char {
 macro_rules! impl_to_tokens_int {
     (signed, $t:ty, $tag:expr) => (
         impl ToTokens for $t {
-            fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+            fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
                 let val = if *self < 0 {
                     -self
                 } else {
@@ -285,7 +290,7 @@ macro_rules! impl_to_tokens_int {
     );
     (unsigned, $t:ty, $tag:expr) => (
         impl ToTokens for $t {
-            fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+            fn to_tokens<'a>(&self, cx: &ExtCtxt<'a>) -> Result<Vec<TokenTree>, DiagnosticBuilder<'a>> {
                 let lit = ast::LitKind::Int(*self as u64, ast::LitIntType::Unsigned($tag));
                 dummy_spanned(lit).to_tokens(cx)
             }
@@ -312,13 +317,15 @@ pub trait ExtParseUtils {
     fn parse_tts(&self, s: String) -> Vec<ast::TokenTree>;
 }
 
+// TODO: add proper error handling instead of .expect().
 impl<'a> ExtParseUtils for ExtCtxt<'a> {
     fn parse_item(&self, s: String) -> P<ast::Item> {
         parse::parse_item_from_source_str("<quote expansion>".to_string(),
                                           s,
                                           self.cfg(),
                                           self.parse_sess())
-            .expect("parse error")
+            .expect("parse error (syntax error)")
+            .expect("parse error (no item found)")
     }
 
     fn parse_stmt(&self, s: String) -> ast::Stmt {
@@ -326,7 +333,8 @@ impl<'a> ExtParseUtils for ExtCtxt<'a> {
                                           s,
                                           self.cfg(),
                                           self.parse_sess())
-            .expect("parse error")
+            .expect("parse error (syntax error)")
+            .expect("parse error (no item found)")
     }
 
     fn parse_expr(&self, s: String) -> P<ast::Expr> {
@@ -334,6 +342,7 @@ impl<'a> ExtParseUtils for ExtCtxt<'a> {
                                           s,
                                           self.cfg(),
                                           self.parse_sess())
+            .expect("parse error")
     }
 
     fn parse_tts(&self, s: String) -> Vec<ast::TokenTree> {
@@ -341,6 +350,7 @@ impl<'a> ExtParseUtils for ExtCtxt<'a> {
                                          s,
                                          self.cfg(),
                                          self.parse_sess())
+            .expect("parse error")
     }
 }
 
