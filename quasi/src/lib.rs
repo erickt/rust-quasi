@@ -34,7 +34,7 @@ pub trait ToTokens {
 
 impl ToTokens for TokenTree {
     fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec!(self.clone())
+        vec![self.clone()]
     }
 }
 
@@ -82,7 +82,8 @@ impl ToTokens for ast::Ident {
 
 impl ToTokens for ast::Path {
     fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(DUMMY_SP, token::Interpolated(token::NtPath(Box::new(self.clone()))))]
+        vec![ast::TokenTree::Token(DUMMY_SP,
+                                   token::Interpolated(token::NtPath(Box::new(self.clone()))))]
     }
 }
 
@@ -112,31 +113,37 @@ impl ToTokens for P<ast::Item> {
 
 impl ToTokens for P<ast::ImplItem> {
     fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtImplItem(self.clone())))]
+        vec![ast::TokenTree::Token(self.span,
+                                   token::Interpolated(token::NtImplItem(self.clone())))]
     }
 }
 
 impl ToTokens for P<ast::TraitItem> {
     fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Token(self.span, token::Interpolated(token::NtTraitItem(self.clone())))]
+        vec![ast::TokenTree::Token(self.span,
+                                   token::Interpolated(token::NtTraitItem(self.clone())))]
     }
 }
 
 impl ToTokens for ast::Generics {
-    fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
+    fn to_tokens(&self, cx: &ExtCtxt) -> Result<Vec<TokenTree>, DiagnosticsBuilder> {
         let s = pprust::generics_to_string(self);
 
-        parse_tts_from_source_str("<quote expansion>".to_string(), s, cx.cfg(), cx.parse_sess())
+        parse_tts_from_source_str("<quote expansion>".to_string(),
+                                  s,
+                                  cx.cfg(),
+                                  cx.parse_sess())
     }
 }
 
 impl ToTokens for ast::WhereClause {
     fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
-        let s = pprust::to_string(|s| {
-            s.print_where_clause(&self)
-        });
+        let s = pprust::to_string(|s| s.print_where_clause(&self));
 
-        parse_tts_from_source_str("<quote expansion>".to_string(), s, cx.cfg(), cx.parse_sess())
+        parse_tts_from_source_str("<quote expansion>".to_string(),
+                                  s,
+                                  cx.cfg(),
+                                  cx.parse_sess())
     }
 }
 
@@ -207,33 +214,33 @@ impl ToTokens for ast::Attribute {
         if self.node.style == ast::AttrStyle::Inner {
             r.push(ast::TokenTree::Token(self.span, token::Not));
         }
-        r.push(ast::TokenTree::Delimited(self.span, Rc::new(ast::Delimited {
-            delim: token::Bracket,
-            open_span: self.span,
-            tts: self.node.value.to_tokens(cx),
-            close_span: self.span,
-        })));
+        r.push(ast::TokenTree::Delimited(self.span,
+                                         Rc::new(ast::Delimited {
+                                             delim: token::Bracket,
+                                             open_span: self.span,
+                                             tts: self.node.value.to_tokens(cx),
+                                             close_span: self.span,
+                                         })));
         r
     }
 }
 
 impl ToTokens for str {
     fn to_tokens(&self, cx: &ExtCtxt) -> Vec<TokenTree> {
-        let lit
-         = ast::LitKind::Str(
-            token::intern_and_get_ident(self), ast::StrStyle::Cooked);
+        let lit = ast::LitKind::Str(token::intern_and_get_ident(self), ast::StrStyle::Cooked);
         dummy_spanned(lit).to_tokens(cx)
     }
 }
 
 impl ToTokens for () {
     fn to_tokens(&self, _cx: &ExtCtxt) -> Vec<TokenTree> {
-        vec![ast::TokenTree::Delimited(DUMMY_SP, Rc::new(ast::Delimited {
-            delim: token::Paren,
-            open_span: DUMMY_SP,
-            tts: vec![],
-            close_span: DUMMY_SP,
-        }))]
+        vec![ast::TokenTree::Delimited(DUMMY_SP,
+                                       Rc::new(ast::Delimited {
+                                           delim: token::Paren,
+                                           open_span: DUMMY_SP,
+                                           tts: vec![],
+                                           close_span: DUMMY_SP,
+                                       }))]
     }
 }
 
@@ -245,7 +252,8 @@ impl ToTokens for ast::Lit {
             node: ast::ExprKind::Lit(P(self.clone())),
             span: DUMMY_SP,
             attrs: None,
-        }).to_tokens(cx)
+        })
+            .to_tokens(cx)
     }
 }
 
@@ -305,20 +313,20 @@ pub trait ExtParseUtils {
 }
 
 impl<'a> ExtParseUtils for ExtCtxt<'a> {
-
     fn parse_item(&self, s: String) -> P<ast::Item> {
-        parse::parse_item_from_source_str(
-            "<quote expansion>".to_string(),
-            s,
-            self.cfg(),
-            self.parse_sess()).expect("parse error")
+        parse::parse_item_from_source_str("<quote expansion>".to_string(),
+                                          s,
+                                          self.cfg(),
+                                          self.parse_sess())
+            .expect("parse error")
     }
 
     fn parse_stmt(&self, s: String) -> ast::Stmt {
         parse::parse_stmt_from_source_str("<quote expansion>".to_string(),
                                           s,
                                           self.cfg(),
-                                          self.parse_sess()).expect("parse error")
+                                          self.parse_sess())
+            .expect("parse error")
     }
 
     fn parse_expr(&self, s: String) -> P<ast::Expr> {
@@ -337,23 +345,23 @@ impl<'a> ExtParseUtils for ExtCtxt<'a> {
 }
 
 pub fn parse_expr_panic(parser: &mut Parser) -> P<ast::Expr> {
-        panictry!(parser.parse_expr())
+    panictry!(parser.parse_expr())
 }
 
 pub fn parse_item_panic(parser: &mut Parser) -> Option<P<ast::Item>> {
-        panictry!(parser.parse_item())
+    panictry!(parser.parse_item())
 }
 
 pub fn parse_pat_panic(parser: &mut Parser) -> P<ast::Pat> {
-        panictry!(parser.parse_pat())
+    panictry!(parser.parse_pat())
 }
 
 pub fn parse_arm_panic(parser: &mut Parser) -> ast::Arm {
-        panictry!(parser.parse_arm())
+    panictry!(parser.parse_arm())
 }
 
 pub fn parse_ty_panic(parser: &mut Parser) -> P<ast::Ty> {
-        panictry!(parser.parse_ty())
+    panictry!(parser.parse_ty())
 }
 
 pub fn parse_stmt_panic(parser: &mut Parser) -> Option<ast::Stmt> {
@@ -361,5 +369,5 @@ pub fn parse_stmt_panic(parser: &mut Parser) -> Option<ast::Stmt> {
 }
 
 pub fn parse_attribute_panic(parser: &mut Parser, permit_inner: bool) -> ast::Attribute {
-        panictry!(parser.parse_attribute(permit_inner))
+    panictry!(parser.parse_attribute(permit_inner))
 }
